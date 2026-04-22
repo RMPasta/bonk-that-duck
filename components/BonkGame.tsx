@@ -783,11 +783,13 @@ function StartScreen({ onStart, bgUrl }: { onStart: () => void; bgUrl: string | 
       <div className="ember" style={{ left: '48%', top: '72%', animationDelay: '0.7s' }} />
       <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1, type: 'spring', stiffness: 130 }}
         className="text-center max-w-md w-full">
-        <img
-          src="https://aagrmr5pocteyhfg.public.blob.vercel-storage.com/brand-assets/character-scenes/1776711650730-GVC_Duck_002.webp"
-          alt="GVC Duck"
-          className="w-36 h-36 object-contain mx-auto mb-2 rounded-2xl drop-shadow-[0_0_24px_rgba(255,224,72,0.45)]"
-        />
+        <div className="w-36 h-36 rounded-2xl overflow-hidden mx-auto mb-2 drop-shadow-[0_0_24px_rgba(255,224,72,0.45)]">
+          <img
+            src="https://aagrmr5pocteyhfg.public.blob.vercel-storage.com/brand-assets/character-scenes/1776711650730-GVC_Duck_002.webp"
+            alt="GVC Duck"
+            className="w-full h-full object-cover"
+          />
+        </div>
         <h1 className="font-display font-black text-4xl sm:text-5xl text-shimmer mb-1 uppercase tracking-tight">BONK THAT DUCK</h1>
         <p className="font-body text-white/50 text-sm mb-5">
           Evil rubber ducks are invading Vibetown.<br />
@@ -866,11 +868,13 @@ function GameOverScreen({ score, time, kills, level, wave,
       className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-black/80 backdrop-blur-sm px-4">
       <motion.div initial={{ scale: 0.85, y: 28 }} animate={{ scale: 1, y: 0 }} transition={{ type: 'spring', stiffness: 140 }}
         className="text-center max-w-sm w-full">
-        <img
-          src="https://aagrmr5pocteyhfg.public.blob.vercel-storage.com/brand-assets/character-scenes/1776711625812-XRay_Cooking_02.webp"
-          alt="Defeated"
-          className="w-56 h-56 object-contain mx-auto mb-3 rounded-2xl drop-shadow-[0_0_32px_rgba(255,95,31,0.6)]"
-        />
+        <div className="w-56 h-56 rounded-2xl overflow-hidden mx-auto mb-3 drop-shadow-[0_0_32px_rgba(255,95,31,0.6)]">
+          <img
+            src="https://aagrmr5pocteyhfg.public.blob.vercel-storage.com/brand-assets/character-scenes/1776711625812-XRay_Cooking_02.webp"
+            alt="Defeated"
+            className="w-full h-full object-cover"
+          />
+        </div>
         <h2 className="font-display font-black text-4xl text-shimmer mb-1 uppercase">VIBES DEFEATED</h2>
         <p className="font-body text-white/40 text-sm mb-4">The ducks reclaim Vibetown… for now.</p>
 
