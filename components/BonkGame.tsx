@@ -1,7 +1,5 @@
 'use client';
 
-const WALLET_ENABLED = process.env.NEXT_PUBLIC_WALLET_ENABLED === 'true';
-
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,6 +8,8 @@ import {
 } from '@/lib/game-engine';
 import { connectWallet, getWalletDisplayName, getSavedWallet, saveWallet } from '@/lib/wallet';
 import { addScore, getLeaderboard, LeaderboardEntry } from '@/lib/leaderboard';
+
+const WALLET_ENABLED = process.env.NEXT_PUBLIC_WALLET_ENABLED === 'true';
 
 // ─── Asset URLs ───────────────────────────────────────────────────────────────
 
