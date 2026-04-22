@@ -112,20 +112,10 @@ async function processPlayerImage(img: HTMLImageElement): Promise<HTMLCanvasElem
 interface Assets {
   bgs: HTMLImageElement[];
   shaka: HTMLImageElement | null;
-  craigCanvas: HTMLCanvasElement | null;  // kept for processPlayerImage compat
+  craigCanvas: HTMLCanvasElement | null;
   vibeShot: HTMLImageElement | null;
   shibaBadge: HTMLImageElement | null;
-  craigFrames: HTMLCanvasElement[] | null; // sprite sheet: 4 idle + 6 walk + 2 attack
 }
-
-// ── Craig sprite sheet constants ──────────────────────────────────────────────
-// Art space: x ∈ [-10, 10], y ∈ [-28, 16]  →  20 × 44 art pixels
-// Canvas pixels per art pixel = 3 (CRAIG_S)
-const CRAIG_S  = 3;
-const CRAIG_FW = 20 * CRAIG_S;   // 60 px frame width
-const CRAIG_FH = 44 * CRAIG_S;   // 132 px frame height
-const CRAIG_OX = 10 * CRAIG_S;   // 30 — origin x (art x=0) in frame canvas
-const CRAIG_OY = 28 * CRAIG_S;   // 84 — origin y (art y=0, waist) in frame canvas
 
 // Draws a star path at (x, y). Caller must fill/stroke.
 function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, outerR: number, innerR: number, spikes: number) {
@@ -139,168 +129,98 @@ function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, outerR: n
   ctx.closePath();
 }
 
-// Draws one Craig sprite frame into ctx, with origin at (ox, oy) = art (0,0) = waist.
-// lLeg/rLeg: leg Y offset in art pixels (positive = back, negative = forward).
-// lArm/rArm: arm Y offset. atkR: right-arm upward extend (attack animation).
-function drawCraigArtFrame(
+function drawCraigPixelArt(
   ctx: CanvasRenderingContext2D,
-  ox: number, oy: number,
-  lLeg: number, rLeg: number,
-  lArm: number, rArm: number,
-  atkR: number
+  cx: number, cy: number,
+  time: number,
+  isMoving: boolean,
+  isFlashing: boolean
 ) {
-  const S = CRAIG_S;
-  const f = (x: number, y: number, w: number, h: number, c: string) => {
-    ctx.fillStyle = c;
-    ctx.fillRect(ox + x * S, oy + y * S, w * S, h * S);
-  };
+  const S = 3; // higher res — 3 canvas px per art pixel
+  const bob = isMoving ? Math.sin(time * 9) * 2.5 : 0;
+  const walk = isMoving ? Math.sin(time * 9) : 0;
 
-  // Ground shadow ellipse
   ctx.save();
-  ctx.globalAlpha = 0.18;
+  ctx.translate(Math.round(cx), Math.round(cy + bob));
+
+  // Ground shadow
+  ctx.save();
+  ctx.globalAlpha = isFlashing ? 0.1 : 0.22;
   ctx.fillStyle = '#000';
   ctx.beginPath();
-  ctx.ellipse(ox, oy + 17 * S, 7 * S, 2.2 * S, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 16 * S, 6 * S, 2 * S, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
-  // ── SHOES ──────────────────────────────────────────────────────────────
-  f(-6, 13 + lLeg, 6, 2, '#0C0C0C');
-  f(-6, 15 + lLeg, 6, 1, '#1C1C1C');   // sole
-  f(-5, 12 + lLeg, 2, 1, '#444');       // lace
-  f( 0, 13 + rLeg, 6, 2, '#0C0C0C');
-  f( 0, 15 + rLeg, 6, 1, '#1C1C1C');
-  f( 1, 12 + rLeg, 2, 1, '#444');
+  if (isFlashing) ctx.globalAlpha = 0.4;
 
-  // ── PANTS ──────────────────────────────────────────────────────────────
-  f(-5,  5 + lLeg, 4, 8, '#1A2050');
-  f(-4,  5 + lLeg, 1, 7, '#252988');   // inner seam highlight
-  f(-5, 12 + lLeg, 4, 1, '#13184A');   // cuff
-  f( 1,  5 + rLeg, 4, 8, '#1A2050');
-  f( 2,  5 + rLeg, 1, 7, '#252988');
-  f( 1, 12 + rLeg, 4, 1, '#13184A');
-
-  // ── BELT ───────────────────────────────────────────────────────────────
-  f(-5, 4, 10, 2, '#0C0C22');
-  f(-1, 4,  2, 2, '#888');             // buckle
-
-  // ── LEFT ARM (drawn behind jacket body) ────────────────────────────────
-  f(-9, -3 + lArm, 3, 6, '#16B8B8');   // sleeve
-  f(-9,  3 + lArm, 3, 4, '#119898');   // forearm
-  f(-9,  3 + lArm, 3, 1, '#0E8888');   // cuff line
-  f(-9,  6 + lArm, 3, 3, '#D87080');   // hand
-  f(-8,  7 + lArm, 1, 1, '#C06070');   // hand shadow
-
-  // ── RIGHT ARM ──────────────────────────────────────────────────────────
-  const ra = rArm - atkR;
-  f( 6, -3 + ra, 3, 6, '#16B8B8');
-  f( 6,  3 + ra, 3, 4, '#119898');
-  f( 6,  3 + ra, 3, 1, '#0E8888');
-  f( 6,  6 + ra, 3, 3, '#D87080');
-  f( 7,  7 + ra, 1, 1, '#C06070');
-
-  // ── JACKET BODY ────────────────────────────────────────────────────────
-  f(-5, -4, 10, 9, '#16B8B8');
-  f(-5, -4,  2, 8, '#109090');         // left lapel shadow
-  f( 3, -4,  2, 8, '#109090');         // right lapel shadow
-  f(-1, -4,  2, 7, '#E5FFFF');         // undershirt stripe
-  f(-2, -4,  1, 3, '#109090');         // left collar point
-  f( 1, -4,  1, 3, '#109090');         // right collar point
-  f(-1, -2,  1, 1, '#BBEEEE');         // button 1
-  f(-1,  0,  1, 1, '#BBEEEE');         // button 2
-  f(-1,  2,  1, 1, '#BBEEEE');         // button 3
-  f(-4,  0,  2, 3, '#0E8080');         // breast pocket
-  f(-4,  0,  2, 1, '#0A6868');         // pocket flap
-  f(-5,  4, 10, 1, '#109090');         // jacket hem
-
-  // ── NECK ───────────────────────────────────────────────────────────────
-  f(-1, -6, 2, 2, '#CC8090');
-  f(-2, -5, 4, 1, '#D5FFFF');          // shirt collar overlap
-
-  // ── HEAD ───────────────────────────────────────────────────────────────
-  f(-4, -14, 8, 8, '#D87080');
-  f(-4, -12,  1, 4, '#C06070');        // left ear
-  f( 3, -12,  1, 4, '#C06070');        // right ear
-  f(-3,  -7,  6, 1, '#E08898');        // chin highlight
-  f(-4, -14,  8, 1, '#C06070');        // hairline shadow
-  f(-4,  -9,  1, 2, '#E09080');        // left cheek blush
-  f( 3,  -9,  1, 2, '#E09080');        // right cheek blush
-
-  // ── EYEBROWS ───────────────────────────────────────────────────────────
-  f(-3, -12, 3, 1, '#1A0808');
-  f( 0, -12, 3, 1, '#1A0808');
-
-  // ── EYES ───────────────────────────────────────────────────────────────
-  f(-3, -11, 2, 2, '#F5EDED');         // whites
-  f( 1, -11, 2, 2, '#F5EDED');
-  f(-3, -10, 2, 2, '#0A0A0A');         // pupils
-  f( 1, -10, 2, 2, '#0A0A0A');
-  f(-2,  -9, 1, 1, '#FFF');            // left shine
-  f( 2,  -9, 1, 1, '#FFF');            // right shine
-  f(-3,  -9, 2, 1, '#A06070');         // lower lash line
-  f( 1,  -9, 2, 1, '#A06070');
-
-  // ── NOSE ───────────────────────────────────────────────────────────────
-  f(-1, -8, 2, 1, '#BB6078');
-
-  // ── MOUTH ──────────────────────────────────────────────────────────────
-  f(-2, -6, 4, 1, '#AA3355');
-  f(-2, -6, 1, 1, '#FFFAEE');          // left tooth
-  f( 1, -6, 1, 1, '#FFFAEE');          // right tooth
-
-  // ── HAIR (hot pink, 5-spike) ───────────────────────────────────────────
-  f(-5, -14, 10, 2, '#CC0060');        // root band / hairline
-  f(-5, -21, 10, 8, '#EE1A88');        // main block
-  f(-7, -20,  2, 8, '#EE1A88');        // left poof
-  f( 5, -20,  2, 8, '#EE1A88');        // right poof
-  f(-8, -18,  1, 5, '#EE1A88');        // left outer wisp
-  f( 7, -18,  1, 5, '#EE1A88');        // right outer wisp
-  f(-5, -26,  2, 6, '#EE1A88');        // far-left spike
-  f(-3, -27,  2, 7, '#EE1A88');        // left spike
-  f(-1, -28,  2, 8, '#EE1A88');        // center spike (tallest)
-  f( 1, -27,  2, 7, '#EE1A88');        // right spike
-  f( 3, -26,  2, 6, '#EE1A88');        // far-right spike
-  f(-5, -22,  4, 2, '#FF66BB');        // left highlight
-  f( 1, -22,  4, 2, '#FF66BB');        // right highlight
-  f(-1, -26,  2, 3, '#FF99DD');        // top center highlight
-  f(-3, -19,  3, 1, '#FF99DD');        // mid shimmer
-  f( 0, -19,  3, 1, '#FF99DD');
-  f(-5, -13, 10, 1, '#BB005A');        // root dark line
-}
-
-// Pre-render all Craig animation frames to offscreen canvases.
-// Frames: 0-3 idle (4f) | 4-9 walk cycle (6f) | 10-11 attack (2f)
-function buildCraigFrames(): HTMLCanvasElement[] {
-  const make = (lLeg: number, rLeg: number, lArm: number, rArm: number, atkR = 0) => {
-    const c = document.createElement('canvas');
-    c.width = CRAIG_FW; c.height = CRAIG_FH;
-    drawCraigArtFrame(c.getContext('2d')!, CRAIG_OX, CRAIG_OY,
-      Math.round(lLeg), Math.round(rLeg),
-      Math.round(lArm), Math.round(rArm),
-      Math.round(atkR));
-    return c;
+  const f = (x: number, y: number, w: number, h: number, c: string) => {
+    ctx.fillStyle = c; ctx.fillRect(x * S, y * S, w * S, h * S);
   };
 
-  const frames: HTMLCanvasElement[] = [];
-  // Idle — subtle arm sway
-  frames.push(make(0, 0,  0,    0   ));
-  frames.push(make(0, 0,  0.7, -0.7 ));
-  frames.push(make(0, 0,  0,    0   ));
-  frames.push(make(0, 0, -0.7,  0.7 ));
-  // Walk cycle — opposing arm/leg swing
-  for (let i = 0; i < 6; i++) {
-    const t = (i / 6) * Math.PI * 2;
-    frames.push(make(
-      -Math.sin(t) * 3,        // lLeg forward on downswing
-       Math.sin(t) * 3,        // rLeg opposite
-       Math.sin(t) * 2.5,      // lArm opposite to lLeg
-      -Math.sin(t) * 2.5,      // rArm
-    ));
-  }
-  // Attack — right arm lunges forward then retracts
-  frames.push(make(0, 0, -1,  0, 4));
-  frames.push(make(0, 0,  0,  0, 2));
-  return frames;
+  // ── SHOES (walk-animated) ──
+  const ls = Math.round(walk * 2), rs = -Math.round(walk * 2);
+  f(-4, 13 + ls, 4, 2, '#0A0A0A');   // left shoe
+  f(0,  13 + rs, 4, 2, '#0A0A0A');   // right shoe
+
+  // ── PANTS (dark navy, subtle seam) ──
+  f(-4, 6, 3, 7, '#1A2050');
+  f(1,  6, 3, 7, '#1A2050');
+  f(-2, 6, 1, 6, '#242878');         // left inner seam highlight
+  f(2,  6, 1, 6, '#242878');         // right inner seam highlight
+
+  // ── TEAL JACKET ──
+  f(-5, -4, 10, 10, '#16B8B8');      // main body
+  f(-5, -4,  2,  6, '#11A0A0');      // left lapel (darker)
+  f(3,  -4,  2,  6, '#11A0A0');      // right lapel
+  f(-1, -4,  2,  5, '#EFFFFF');      // undershirt / centre
+  f(-4,  2,  2,  2, '#0E9090');      // breast pocket
+  f(-4,  2,  2,  1, '#0A7878');      // pocket flap shadow
+  f(-1,  0,  1,  1, '#DDFFFF');      // button 1
+  f(-1,  2,  1,  1, '#DDFFFF');      // button 2
+
+  // ── NECK ──
+  f(-1, -6, 2, 2, '#CC8090');
+
+  // ── HEAD (pink/rose tone) ──
+  f(-4, -13, 8, 7, '#D87080');
+  f(-4, -12,  1, 3, '#C06070');      // left ear
+  f(3,  -12,  1, 3, '#C06070');      // right ear
+  f(-3,  -7,  6, 1, '#E08898');      // chin / jaw highlight
+
+  // ── EYEBROWS (angled, expressive) ──
+  f(-3, -11, 3, 1, '#1A0808');       // left brow (angled inward)
+  f(1,  -11, 2, 1, '#1A0808');       // right brow
+
+  // ── EYES (2×2 pupil + whites + shine) ──
+  f(-3, -9, 2, 2, '#0A0A0A');        // left pupil
+  f(1,  -9, 2, 2, '#0A0A0A');        // right pupil
+  f(-3, -10, 1, 1, '#FFFFFF');       // left top-white
+  f(1,  -10, 1, 1, '#FFFFFF');       // right top-white
+  f(-2,  -8, 1, 1, '#FFFFFF');       // left eye shine
+  f(2,   -8, 1, 1, '#FFFFFF');       // right eye shine
+
+  // ── NOSE ──
+  f(-1, -7, 2, 1, '#BB6078');
+
+  // ── MOUTH / SMILE ──
+  f(-2, -5, 4, 1, '#AA3355');        // upper lip / smile line
+  f(-2, -5, 1, 1, '#FFFFFF');        // left tooth
+  f(1,  -5, 1, 1, '#FFFFFF');        // right tooth
+
+  // ── HAIR — big fluffy hot-pink ──
+  f(-5, -19, 10, 7, '#EE1A88');      // main hair block
+  f(-6, -18,  2, 7, '#EE1A88');      // left poof
+  f(4,  -18,  2, 7, '#EE1A88');      // right poof
+  f(-3, -22,  2, 4, '#EE1A88');      // left spike
+  f(-1, -23,  2, 5, '#EE1A88');      // centre spike (tallest)
+  f(1,  -22,  2, 4, '#EE1A88');      // right spike
+  f(-4, -19,  3, 2, '#FF77CC');      // highlight left
+  f(1,  -19,  3, 2, '#FF77CC');      // highlight right
+  f(-1, -22,  2, 2, '#FF99DD');      // top highlight
+  f(-5, -13, 10, 2, '#BB0055');      // dark shadow at roots
+
+  ctx.restore();
 }
 
 function drawRubberDuck(ctx: CanvasRenderingContext2D, e: Enemy) {
@@ -460,7 +380,7 @@ function drawRubberDuck(ctx: CanvasRenderingContext2D, e: Enemy) {
 function drawPlayer(
   ctx: CanvasRenderingContext2D,
   gs: GS, W: number, H: number,
-  craigFrames: HTMLCanvasElement[] | null,
+  craigCanvas: HTMLCanvasElement | null,
   isMoving: boolean,
   shibaBadge: HTMLImageElement | null
 ) {
@@ -518,7 +438,7 @@ function drawPlayer(
     return dx * dx + dy * dy < pool.r * pool.r;
   });
   const isFlashing = (p.invTimer > 0 || inPool) && Math.floor(gs.time * 20) % 2 === 0;
-  const bob = isMoving ? Math.sin(gs.time * 9) * 2.5 : Math.sin(gs.time * 1.8) * 0.6;
+  const bob = isMoving ? Math.sin(gs.time * 9) * 2.5 : 0;
 
   // Gold base glow
   ctx.save();
@@ -527,34 +447,17 @@ function drawPlayer(
   ctx.beginPath(); ctx.arc(px, py + 6, p.radius * 0.9, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 
-  // ── Sprite sheet rendering ─────────────────────────────────────────────
-  if (craigFrames && craigFrames.length >= 12) {
-    // Attack detection: atkTimer was just reset to 1/atkRate after firing
-    const atkPeriod = p.atkRate > 0 ? 1 / p.atkRate : 1;
-    const isAttacking = p.atkTimer > atkPeriod * 0.78;
-    let fi = 0;
-    if (isAttacking) {
-      fi = p.atkTimer > atkPeriod * 0.88 ? 10 : 11;
-    } else if (isMoving) {
-      fi = 4 + (Math.floor(gs.time * 11) % 6);   // 11 fps walk
-    } else {
-      fi = Math.floor(gs.time * 3.5) % 4;          // 3.5 fps idle breathe
-    }
-    const frame = craigFrames[fi];
-    const drawH = p.radius * 4.5;
-    const sc = drawH / CRAIG_FH;
-    const anchorY = py - p.radius * 0.4 + bob;
-    if (isFlashing) { ctx.save(); ctx.globalAlpha = 0.42; }
-    ctx.imageSmoothingEnabled = false; // crisp pixel art
-    ctx.drawImage(frame, px - CRAIG_OX * sc, anchorY - CRAIG_OY * sc, CRAIG_FW * sc, drawH);
+  if (craigCanvas) {
+    // Processed Craig image (background removed) — high quality scaling
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    const imgH = p.radius * 4.5;
+    const imgW = (craigCanvas.width / craigCanvas.height) * imgH;
+    if (isFlashing) { ctx.save(); ctx.globalAlpha = 0.4; }
+    ctx.drawImage(craigCanvas, px - imgW / 2, py - imgH * 0.72 + bob, imgW, imgH);
     if (isFlashing) ctx.restore();
   } else {
-    // Fallback before frames build: simple pink circle
-    ctx.save();
-    if (isFlashing) ctx.globalAlpha = 0.4;
-    ctx.fillStyle = '#EE1A88';
-    ctx.beginPath(); ctx.arc(px, py, p.radius, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
+    drawCraigPixelArt(ctx, px, py, gs.time, isMoving, isFlashing);
   }
 }
 
@@ -813,7 +716,7 @@ function renderGame(
   }
 
   // Player — drawn in world space so it scales with zoom
-  drawPlayer(ctx, gs, W, H, assets.craigFrames, isMoving, assets.shibaBadge);
+  drawPlayer(ctx, gs, W, H, assets.craigCanvas, isMoving, assets.shibaBadge);
 
   ctx.restore(); // end world transform
 }
@@ -1111,7 +1014,7 @@ export default function BonkGame() {
   const joyOriginRef = useRef<{ x: number; y: number } | null>(null);
   const joyThumbRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const mouseRef = useRef<{ x: number; y: number; held: boolean }>({ x: 0, y: 0, held: false });
-  const assetsRef = useRef<Assets>({ bgs: [], shaka: null, craigCanvas: null, vibeShot: null, shibaBadge: null, craigFrames: null });
+  const assetsRef = useRef<Assets>({ bgs: [], shaka: null, craigCanvas: null, vibeShot: null, shibaBadge: null });
 
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [walletName, setWalletName] = useState<string | null>(null);
@@ -1145,8 +1048,13 @@ export default function BonkGame() {
       assetsRef.current.bgs = imgs.filter((i): i is HTMLImageElement => i !== null);
     }
 
-    // Build Craig sprite sheet synchronously — 12 pre-rendered frames
-    assetsRef.current.craigFrames = buildCraigFrames();
+    // Craig character: load + remove solid background colour
+    async function loadCraig() {
+      const img = await loadImg(PLAYER_URL);
+      if (!img) return;
+      const processed = await processPlayerImage(img);
+      assetsRef.current.craigCanvas = processed; // null = use pixel art fallback
+    }
 
     // Any GVC badge icon for XP orbs
     loadImg(`${ASSET_BASE}/badges/1776285676512-any_gvc.webp`).then(img => { if (img) assetsRef.current.shaka = img; });
@@ -1156,6 +1064,7 @@ export default function BonkGame() {
     loadImg(BADGE_URLS['shiba_syndicate']).then(img => { if (img) assetsRef.current.shibaBadge = img; });
 
     loadBgs();
+    loadCraig();
   }, []);
 
   // Restore saved wallet on mount
