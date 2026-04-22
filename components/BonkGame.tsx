@@ -1,4 +1,7 @@
 'use client';
+
+const WALLET_ENABLED = process.env.NEXT_PUBLIC_WALLET_ENABLED === 'true';
+
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -878,8 +881,8 @@ function GameOverScreen({ score, time, kills, level, wave,
         <h2 className="font-display font-black text-4xl text-shimmer mb-1 uppercase">VIBES DEFEATED</h2>
         <p className="font-body text-white/40 text-sm mb-4">The ducks reclaim Vibetown… for now.</p>
 
-        {/* Tab switcher */}
-        <div className="flex gap-1 bg-black/40 rounded-xl p-1 mb-4">
+        {/* Tab switcher — only shown when wallet feature is enabled */}
+        {WALLET_ENABLED && <div className="flex gap-1 bg-black/40 rounded-xl p-1 mb-4">
           {(['stats', 'board'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex-1 py-2 rounded-lg font-display font-black text-xs uppercase transition-all ${
@@ -1037,6 +1040,7 @@ export default function BonkGame() {
 
   // Restore saved wallet on mount
   useEffect(() => {
+    if (!WALLET_ENABLED) return;
     const saved = getSavedWallet();
     if (saved) {
       setWalletAddress(saved);
@@ -1047,6 +1051,7 @@ export default function BonkGame() {
 
   // Submit score when game ends and wallet is connected
   useEffect(() => {
+    if (!WALLET_ENABLED) return;
     if (ui.phase === 'dead' && walletAddress && walletName && !scoreSubmittedRef.current) {
       scoreSubmittedRef.current = true;
       const updated = addScore({
@@ -1246,7 +1251,7 @@ export default function BonkGame() {
 
       {(ui.phase === 'playing' || ui.phase === 'levelup') && (
         <div className="absolute top-3 right-3 z-10 flex items-center gap-2 pointer-events-auto">
-          {walletName && (
+          {WALLET_ENABLED && walletName && (
             <div onMouseDown={e => e.stopPropagation()}
               className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-black/50 border border-white/10 max-w-[120px]">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
@@ -1277,9 +1282,11 @@ export default function BonkGame() {
         {ui.phase === 'dead' && (
           <GameOverScreen key="over" score={ui.score} time={ui.time} kills={ui.kills}
             level={ui.level} wave={ui.wave}
-            walletName={walletName} isConnecting={isConnecting}
-            onRestart={handleRestart} onConnect={handleConnect}
-            leaderboard={leaderboard} />
+            walletName={WALLET_ENABLED ? walletName : null}
+            isConnecting={WALLET_ENABLED ? isConnecting : false}
+            onRestart={handleRestart}
+            onConnect={WALLET_ENABLED ? handleConnect : () => {}}
+            leaderboard={WALLET_ENABLED ? leaderboard : []} />
         )}
       </AnimatePresence>
     </div>
