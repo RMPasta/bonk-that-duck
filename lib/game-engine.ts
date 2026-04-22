@@ -563,6 +563,27 @@ export function updateGame(
     }
   }
 
+  // Duck separation — gentle push so ducks fan out rather than perfectly stacking.
+  // Allows ~30% overlap before kicking in, keeping swarm feel without full clumping.
+  for (let i = 0; i < gs.enemies.length; i++) {
+    const a = gs.enemies[i];
+    for (let j = i + 1; j < gs.enemies.length; j++) {
+      const b = gs.enemies[j];
+      const dx = a.x - b.x, dy = a.y - b.y;
+      const dist2 = dx * dx + dy * dy;
+      const sep = (a.radius + b.radius) * 0.72; // 28% overlap allowed
+      if (dist2 < sep * sep && dist2 > 0.01) {
+        const dist = Math.sqrt(dist2);
+        const push = ((sep - dist) / sep) * 55 * dt;
+        const nx = dx / dist, ny = dy / dist;
+        a.x = Math.max(a.radius, Math.min(WORLD - a.radius, a.x + nx * push));
+        a.y = Math.max(a.radius, Math.min(WORLD - a.radius, a.y + ny * push));
+        b.x = Math.max(b.radius, Math.min(WORLD - b.radius, b.x - nx * push));
+        b.y = Math.max(b.radius, Math.min(WORLD - b.radius, b.y - ny * push));
+      }
+    }
+  }
+
   // Enemy projectiles — boss shots that damage the player
   for (let i = gs.enemyProjs.length - 1; i >= 0; i--) {
     const ep = gs.enemyProjs[i];
