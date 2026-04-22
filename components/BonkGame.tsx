@@ -789,8 +789,7 @@ function StartScreen({ name, onNameChange, onStart, bgUrl, walletConnected, wall
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!trimmed) return;
-    saveName(trimmed);
+    if (trimmed) saveName(trimmed);
     onStart();
   }
 
@@ -828,14 +827,15 @@ function StartScreen({ name, onNameChange, onStart, bgUrl, walletConnected, wall
             type="text"
             value={name}
             onChange={e => onNameChange(e.target.value.slice(0, 20))}
-            placeholder="Enter a name to get on the board"
+            placeholder="Name (optional — skip to play unranked)"
             autoComplete="off"
             onMouseDown={e => e.stopPropagation()}
-            className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/20 text-white font-body text-sm placeholder-white/25 focus:outline-none focus:border-gvc-gold/60 focus:bg-black/70 transition-all mb-3"
+            style={{ fontSize: 16 }}
+            className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/20 text-white font-body placeholder-white/25 focus:outline-none focus:border-gvc-gold/60 focus:bg-black/70 transition-all mb-3"
           />
-          <button type="submit" disabled={!trimmed}
-            className="w-full py-4 rounded-xl bg-gvc-gold text-gvc-black font-display font-black text-lg uppercase hover:shadow-[0_0_30px_rgba(255,224,72,0.6)] transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none">
-            START GAME
+          <button type="submit"
+            className="w-full py-4 rounded-xl bg-gvc-gold text-gvc-black font-display font-black text-lg uppercase hover:shadow-[0_0_30px_rgba(255,224,72,0.6)] transition-all active:scale-95">
+            {trimmed ? 'START GAME' : 'PLAY UNRANKED'}
           </button>
         </form>
 
@@ -960,17 +960,23 @@ function GameOverScreen({ score, time, kills, level, wave,
               <div><p className="font-body text-xs text-white/40 uppercase tracking-wide">Wave Reached</p>
                 <p className="font-display font-black text-2xl text-white">{wave}</p></div>
             </div>
-            <div className="flex items-center justify-center gap-2 mb-3 font-body text-sm text-white/50">
-              <span className={`w-2 h-2 rounded-full inline-block ${walletConnected ? 'bg-green-400' : 'bg-gvc-gold/70'}`} />
-              Score saved as <span className="text-gvc-gold font-bold truncate max-w-[160px]">{playerName}</span>
-              {!walletConnected && <span className="text-white/25">(guest)</span>}
-              {walletConnected && (
-                <button onClick={onDisconnect} onMouseDown={e => e.stopPropagation()}
-                  className="text-white/25 hover:text-white/50 text-xs transition-colors ml-1">
-                  Disconnect
-                </button>
-              )}
-            </div>
+            {playerName ? (
+              <div className="flex items-center justify-center gap-2 mb-3 font-body text-sm text-white/50">
+                <span className={`w-2 h-2 rounded-full inline-block ${walletConnected ? 'bg-green-400' : 'bg-gvc-gold/70'}`} />
+                Score saved as <span className="text-gvc-gold font-bold truncate max-w-[160px]">{playerName}</span>
+                {!walletConnected && <span className="text-white/25">(guest)</span>}
+                {walletConnected && (
+                  <button onClick={onDisconnect} onMouseDown={e => e.stopPropagation()}
+                    className="text-white/25 hover:text-white/50 text-xs transition-colors ml-1">
+                    Disconnect
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="font-body text-white/30 text-sm mb-3 text-center">
+                Run not recorded — add a name next time to get on the board
+              </p>
+            )}
             {WALLET_ENABLED && !walletConnected && (
               <button onClick={onConnect} disabled={isConnecting}
                 onMouseDown={e => e.stopPropagation()}
