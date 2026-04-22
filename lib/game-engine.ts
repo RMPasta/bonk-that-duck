@@ -135,7 +135,7 @@ export const UPGRADES: UpgradeDef[] = [
   { id: 'shiba_syndicate', name: 'SHIBA SYNDICATE',    desc: '2 fast Shiba companions orbit and shred ducks.',       emoji: '🐕', maxLvl: 3, rarity: 'rare'      },
   { id: 'pepe_posse',      name: 'PEPE POSSE',         desc: 'Pepe crew slows all ducks 60% every 5 seconds.',       emoji: '🐸', maxLvl: 2, rarity: 'common'    },
   { id: 'bass_in_your_face',name:'BASS IN YOUR FACE',  desc: 'Boombox pulse knocks all ducks back every 4 seconds.', emoji: '🔊', maxLvl: 2, rarity: 'common'    },
-  { id: 'soaked_n_stoked', name: 'SOAKED N\' STOKED',  desc: 'Heal 4 HP every time you bonk a duck.',               emoji: '🚿', maxLvl: 3, rarity: 'common'    },
+  { id: 'soaked_n_stoked', name: 'SOAKED N\' STOKED',  desc: 'Heal 2 HP every time you bonk a duck.',               emoji: '🚿', maxLvl: 3, rarity: 'common'    },
 ];
 
 function seededRng(seed: string) {
@@ -310,7 +310,7 @@ export function applyUpgrade(gs: GS, id: string) {
     case 'shiba_syndicate':  p.orbitCount += 2; p.shibaOrbitCount += 2; p.orbitDmg += 8; break;
     case 'pepe_posse':       p.pepeActive = true; p.pepeTimer = 0; break;
     case 'bass_in_your_face':p.boomboxActive = true; p.boomboxTimer = 0; break;
-    case 'soaked_n_stoked':  p.healOnKill += 4; break;
+    case 'soaked_n_stoked':  p.healOnKill += 2; break;
   }
   gs.phase = 'playing';
 }
