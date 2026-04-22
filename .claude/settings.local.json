@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc)",
+      "Bash(npx tsc *)",
+      "Bash(curl *)",
+      "WebFetch(domain:goodvibesclub.ai)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ]
+  }
+}
