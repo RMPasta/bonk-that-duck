@@ -949,6 +949,33 @@ function GameOverScreen({ score, time, kills, level, wave,
   );
 }
 
+function WaveAnnouncement({ wave }: { wave: number }) {
+  const isBoss = wave > 0 && wave % 5 === 0;
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.7, y: -20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 1.15, y: -30 }}
+      transition={{ type: 'spring', stiffness: 200, damping: 18 }}
+      className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
+      <div className={`text-center px-8 py-4 rounded-2xl border ${isBoss ? 'border-orange-500/60 bg-orange-950/60' : 'border-[#FFE048]/30 bg-black/50'} backdrop-blur-sm`}>
+        {isBoss ? (
+          <>
+            <p className="font-display font-black text-orange-400 text-sm uppercase tracking-widest mb-0.5">Boss Wave</p>
+            <p className="font-display font-black text-5xl text-orange-300 drop-shadow-[0_0_20px_rgba(255,95,31,0.8)]">WAVE {wave}</p>
+            <p className="font-body text-orange-400/70 text-xs mt-1">The Duck King approaches!</p>
+          </>
+        ) : (
+          <>
+            <p className="font-display font-black text-[#FFE048]/70 text-sm uppercase tracking-widest mb-0.5">Wave Clear</p>
+            <p className="font-display font-black text-5xl text-shimmer">WAVE {wave}</p>
+          </>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 function PauseScreen({ onResume, onRestart }: { onResume: () => void; onRestart: () => void }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -979,6 +1006,7 @@ interface UiSnap {
   phase: GS['phase']; hp: number; maxHp: number; xp: number; xpToNext: number;
   level: number; time: number; score: number; wave: number;
   choices: UpgradeDef[]; ups: Record<string, number>; kills: number;
+  waveAnnounce: number;
 }
 
 export default function BonkGame() {
@@ -999,7 +1027,7 @@ export default function BonkGame() {
 
   const [ui, setUi] = useState<UiSnap>({
     phase: 'menu', hp: 100, maxHp: 100, xp: 0, xpToNext: 10,
-    level: 1, time: 0, score: 0, wave: 0, choices: [], ups: {}, kills: 0,
+    level: 1, time: 0, score: 0, wave: 0, choices: [], ups: {}, kills: 0, waveAnnounce: 0,
   });
 
   // Load all GVC assets on mount
@@ -1080,6 +1108,7 @@ export default function BonkGame() {
         level: gs.p.level, time: gs.time,
         score: gs.score, wave: gs.wave,
         choices: gs.choices, ups: { ...gs.ups }, kills: gs.kills,
+        waveAnnounce: gs.waveAnnounce,
       });
     }, 80);
     return () => clearInterval(t);
@@ -1283,6 +1312,9 @@ export default function BonkGame() {
         {ui.phase === 'menu' && <StartScreen key="start" onStart={handleStart} bgUrl={null} />}
         {ui.phase === 'levelup' && <UpgradeModal key="lvl" choices={ui.choices} ups={ui.ups} onPick={handlePick} />}
         {ui.phase === 'paused' && <PauseScreen key="pause" onResume={handleResume} onRestart={handleRestart} />}
+        {ui.waveAnnounce > 0 && ui.phase === 'playing' && (
+          <WaveAnnouncement key={`wave-${ui.wave}`} wave={ui.wave} />
+        )}
         {ui.phase === 'dead' && (
           <GameOverScreen key="over" score={ui.score} time={ui.time} kills={ui.kills}
             level={ui.level} wave={ui.wave}

@@ -98,6 +98,7 @@ export interface GS {
   decors: Decor[];
   hueFlash: number;
   boomboxFlash: number;
+  waveAnnounce: number; // countdown timer for wave announcement overlay
 }
 
 // XP required to REACH each level (tripled from original to keep levelling satisfying not spammy)
@@ -192,7 +193,7 @@ export function initGame(): GS {
     bossSpawned: false,
     nid: 1, kills: 0,
     decors: makeDecors(),
-    hueFlash: 0, boomboxFlash: 0,
+    hueFlash: 0, boomboxFlash: 0, waveAnnounce: 0,
   };
 }
 
@@ -234,6 +235,7 @@ function spawnEnemy(gs: GS, type: EnemyType) {
 
 function spawnWave(gs: GS) {
   gs.wave++;
+  gs.waveAnnounce = 2.8; // seconds the announcement stays visible
   const w = gs.wave;
   const baseCount = 6 + w * 3;
   for (let i = 0; i < baseCount; i++) {
@@ -341,6 +343,7 @@ export function updateGame(
   if (p.sugarTimer > 0) p.sugarTimer -= dt;
   if (gs.hueFlash > 0) gs.hueFlash -= dt;
   if (gs.boomboxFlash > 0) gs.boomboxFlash -= dt;
+  if (gs.waveAnnounce > 0) gs.waveAnnounce -= dt;
   if (p.waveTimer > 0) p.waveTimer -= dt;
   if (p.noscopeTimer > 0) p.noscopeTimer -= dt;
   if (p.shieldTimer > 0) {
