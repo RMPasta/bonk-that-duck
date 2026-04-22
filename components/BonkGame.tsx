@@ -1087,6 +1087,10 @@ export default function BonkGame() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   // Single source of truth: localStorage → state → controlled input
   const [playerName, setPlayerNameState] = useState<string>(() => loadName());
+  const [muted, setMuted] = useState<boolean>(() => {
+    try { return localStorage.getItem('gvc:muted') === '1'; } catch { return false; }
+  });
+  const audioRef = useRef<HTMLAudioElement>(null);
   const scoreSubmittedRef = useRef(false);
   const guestIdRef = useRef<string>((() => {
     try {
@@ -1197,6 +1201,27 @@ export default function BonkGame() {
     return () => clearInterval(t);
   }, []);
 
+  // Audio — play during gameplay, pause on menu/dead/paused
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.muted = muted;
+    const playing = ui.phase === 'playing' || ui.phase === 'levelup';
+    if (playing) {
+      audio.play().catch(() => { /* autoplay blocked — user gesture needed */ });
+    } else {
+      audio.pause();
+    }
+  }, [ui.phase, muted]);
+
+  const handleMute = useCallback(() => {
+    setMuted(prev => {
+      const next = !prev;
+      try { localStorage.setItem('gvc:muted', next ? '1' : '0'); } catch { /* noop */ }
+      return next;
+    });
+  }, []);
+
   // Keyboard
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
@@ -1206,6 +1231,10 @@ export default function BonkGame() {
         else if (gs.phase === 'paused') resumeGame(gs);
         return;
       }
+      if (e.key === 'm' || e.key === 'M') {
+        handleMute();
+        return;
+      }
       keysRef.current.add(e.key);
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
     };
@@ -1213,7 +1242,7 @@ export default function BonkGame() {
     window.addEventListener('keydown', onDown);
     window.addEventListener('keyup', onUp);
     return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp); };
-  }, []);
+  }, [handleMute]);
 
   // Game loop
   useEffect(() => {
@@ -1390,6 +1419,7 @@ export default function BonkGame() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}>
       <canvas ref={canvasRef} className="absolute inset-0 block" />
+      <audio ref={audioRef} src="/Bonk That Duck.mp3" loop preload="auto" />
       {/* GIF overlay — positioned by game loop each frame; must be in DOM to animate */}
       {PLAYER_URL.endsWith('.gif') && (
         <img ref={craigImgRef} src={PLAYER_URL} alt=""
@@ -1410,6 +1440,13 @@ export default function BonkGame() {
               <span className="font-body text-white/50 text-xs truncate">{playerName}</span>
             </div>
           )}
+          <button
+            onMouseDown={e => e.stopPropagation()}
+            onClick={handleMute}
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-black/50 border border-white/20 text-white/60 hover:text-white hover:bg-black/70 transition-all"
+            aria-label={muted ? 'Unmute' : 'Mute'}>
+            {muted ? '🔇' : '🔊'}
+          </button>
           <button
             onMouseDown={e => e.stopPropagation()}
             onClick={handlePause}
