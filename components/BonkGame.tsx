@@ -1075,7 +1075,7 @@ export default function BonkGame() {
       setWalletAddress(saved);
       getWalletDisplayName(saved).then(name => setWalletName(name));
     }
-    setLeaderboard(getLeaderboard());
+    getLeaderboard().then(setLeaderboard);
   }, []);
 
   // Submit score when game ends and wallet is connected
@@ -1083,12 +1083,10 @@ export default function BonkGame() {
     if (!WALLET_ENABLED) return;
     if (ui.phase === 'dead' && walletAddress && walletName && !scoreSubmittedRef.current) {
       scoreSubmittedRef.current = true;
-      const updated = addScore({
+      addScore({
         address: walletAddress, name: walletName,
         score: ui.score, time: ui.time, kills: ui.kills, wave: ui.wave,
-        date: new Date().toISOString(),
-      });
-      setLeaderboard(updated);
+      }).then(() => getLeaderboard().then(setLeaderboard));
     }
     if (ui.phase === 'playing') {
       scoreSubmittedRef.current = false;
@@ -1204,12 +1202,10 @@ export default function BonkGame() {
       const gs = gsRef.current;
       if (gs.phase === 'dead' && !scoreSubmittedRef.current) {
         scoreSubmittedRef.current = true;
-        const updated = addScore({
+        addScore({
           address, name,
           score: gs.score, time: gs.time, kills: gs.kills, wave: gs.wave,
-          date: new Date().toISOString(),
-        });
-        setLeaderboard(updated);
+        }).then(() => getLeaderboard().then(setLeaderboard));
       }
     } finally {
       setIsConnecting(false);

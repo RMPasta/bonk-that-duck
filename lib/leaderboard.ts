@@ -8,27 +8,20 @@ export interface LeaderboardEntry {
   date: string;
 }
 
-const KEY = 'btd_leaderboard_v1';
-const MAX = 50;
-
-export function getLeaderboard(): LeaderboardEntry[] {
+export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   try {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem(KEY) : null;
-    return raw ? JSON.parse(raw) : [];
+    const res = await fetch('/api/leaderboard', { cache: 'no-store' });
+    if (!res.ok) return [];
+    return res.json();
   } catch { return []; }
 }
 
-export function addScore(entry: LeaderboardEntry): LeaderboardEntry[] {
-  const scores = getLeaderboard();
-  // Replace existing entry for same address if new score is higher
-  const idx = scores.findIndex(s => s.address === entry.address);
-  if (idx >= 0) {
-    if (entry.score > scores[idx].score) scores[idx] = entry;
-  } else {
-    scores.push(entry);
-  }
-  scores.sort((a, b) => b.score - a.score);
-  const trimmed = scores.slice(0, MAX);
-  try { localStorage.setItem(KEY, JSON.stringify(trimmed)); } catch { /* noop */ }
-  return trimmed;
+export async function addScore(entry: Omit<LeaderboardEntry, 'date'>): Promise<void> {
+  try {
+    await fetch('/api/leaderboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry),
+    });
+  } catch { /* noop — best effort */ }
 }
