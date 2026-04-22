@@ -42,6 +42,7 @@ export interface Enemy {
   zigTimer: number; zigDir: number;
   toxTimer: number;
   shootTimer: number;
+  steerBias: number; // lateral approach offset in radians; fades near player
 }
 
 export interface Proj {
@@ -226,7 +227,8 @@ function spawnEnemy(gs: GS, type: EnemyType) {
     spd: cfg.spd * (1 + (gs.wave - 1) * 0.04),
     dmg: cfg.dmg, xpVal: cfg.xpVal,
     flashTimer: 0, slowTimer: 0, zigTimer: 0, zigDir: 1, toxTimer: 1.5,
-    shootTimer: 1.5 + Math.random() * 1.5, // boss only uses this; others ignore it
+    shootTimer: 1.5 + Math.random() * 1.5,
+    steerBias: (Math.random() - 0.5) * 0.6, // ±0.3 rad lateral offset to fan approach angles
   });
 }
 
@@ -523,13 +525,23 @@ export function updateGame(
     const spd = e.spd * (e.slowTimer > 0 ? 0.4 : 1);
     const dx = p.x - e.x, dy = p.y - e.y;
     const len = Math.sqrt(dx*dx+dy*dy)||1;
+    // Slowly drift the approach bias for organic movement variety
+    e.steerBias += (Math.random() - 0.5) * 0.5 * dt;
+    e.steerBias = Math.max(-0.5, Math.min(0.5, e.steerBias));
     if (e.type === 'surfer') {
       e.zigTimer -= dt;
       if (e.zigTimer <= 0) { e.zigTimer = 0.4 + Math.random() * 0.5; e.zigDir *= -1; }
       const px = -dy/len * e.zigDir * 0.7, py = dx/len * e.zigDir * 0.7;
       e.x += (dx/len + px) * spd * dt; e.y += (dy/len + py) * spd * dt;
     } else {
-      e.x += (dx/len) * spd * dt; e.y += (dy/len) * spd * dt;
+      // Lateral bias fades to zero as duck closes in so it still lands hits
+      const perpX = -dy / len, perpY = dx / len;
+      const biasFade = Math.max(0, Math.min(1, (len - p.radius - e.radius) / 160));
+      const b = e.steerBias * biasFade;
+      const moveX = dx / len + perpX * b, moveY = dy / len + perpY * b;
+      const moveLen = Math.sqrt(moveX * moveX + moveY * moveY) || 1;
+      e.x += (moveX / moveLen) * spd * dt;
+      e.y += (moveY / moveLen) * spd * dt;
     }
     if (e.type === 'toxic') {
       e.toxTimer -= dt;
@@ -563,24 +575,26 @@ export function updateGame(
     }
   }
 
-  // Duck separation — gentle push so ducks fan out rather than perfectly stacking.
-  // Allows ~28% overlap before kicking in, keeping swarm feel without full clumping.
+  // Two-zone duck separation: hard zone prevents overlap, soft zone encourages spread.
+  // Together with steerBias approach angles, ducks fan around the player instead of stacking.
   for (let i = 0; i < gs.enemies.length; i++) {
     const a = gs.enemies[i];
     for (let j = i + 1; j < gs.enemies.length; j++) {
       const b = gs.enemies[j];
       const dx = a.x - b.x, dy = a.y - b.y;
       const dist2 = dx * dx + dy * dy;
-      const sep = (a.radius + b.radius) * 0.72;
-      if (dist2 < sep * sep && dist2 > 0.01) {
-        const dist = Math.sqrt(dist2);
-        const push = ((sep - dist) / sep) * 55 * dt;
-        const nx = dx / dist, ny = dy / dist;
-        a.x = Math.max(a.radius, Math.min(WORLD - a.radius, a.x + nx * push));
-        a.y = Math.max(a.radius, Math.min(WORLD - a.radius, a.y + ny * push));
-        b.x = Math.max(b.radius, Math.min(WORLD - b.radius, b.x - nx * push));
-        b.y = Math.max(b.radius, Math.min(WORLD - b.radius, b.y - ny * push));
-      }
+      const softSep = (a.radius + b.radius) * 1.9;
+      if (dist2 > softSep * softSep || dist2 < 0.01) continue;
+      const dist = Math.sqrt(dist2);
+      const nx = dx / dist, ny = dy / dist;
+      const hardSep = (a.radius + b.radius) * 1.05;
+      const force = dist < hardSep
+        ? ((hardSep - dist) / hardSep) * 160 * dt
+        : ((softSep - dist) / softSep) * 32 * dt;
+      a.x = Math.max(a.radius, Math.min(WORLD - a.radius, a.x + nx * force));
+      a.y = Math.max(a.radius, Math.min(WORLD - a.radius, a.y + ny * force));
+      b.x = Math.max(b.radius, Math.min(WORLD - b.radius, b.x - nx * force));
+      b.y = Math.max(b.radius, Math.min(WORLD - b.radius, b.y - ny * force));
     }
   }
 

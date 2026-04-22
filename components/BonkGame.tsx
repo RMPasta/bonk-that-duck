@@ -615,19 +615,23 @@ function renderGame(
       ctx.globalAlpha = 0.22; ctx.strokeStyle = '#FF6B9D'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(0, 0, proj.radius * 2.2, 0, Math.PI * 2); ctx.stroke();
     } else {
-      // VIBE SHOT — Official Citizen of Vibetown badge with gold glow
-      ctx.shadowBlur = 16; ctx.shadowColor = '#FFE048';
-      if (assets.vibeShot) {
-        const sz = proj.radius * 4.5;
-        ctx.drawImage(assets.vibeShot, proj.x - sz / 2, proj.y - sz / 2, sz, sz);
-      } else {
-        ctx.translate(proj.x, proj.y);
-        ctx.fillStyle = '#FFE048';
-        drawStar(ctx, 0, 0, proj.radius * 1.7, proj.radius * 0.65, 5);
-        ctx.fill();
-        ctx.fillStyle = '#FFFBC0';
-        ctx.beginPath(); ctx.arc(0, 0, proj.radius * 0.55, 0, Math.PI * 2); ctx.fill();
-      }
+      // VIBE SHOT — glowing gold energy orb
+      ctx.translate(proj.x, proj.y);
+      // Outer glow halo
+      const halo = ctx.createRadialGradient(0, 0, proj.radius * 0.5, 0, 0, proj.radius * 2.6);
+      halo.addColorStop(0, 'rgba(255,224,72,0.55)');
+      halo.addColorStop(1, 'rgba(255,224,72,0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(0, 0, proj.radius * 2.6, 0, Math.PI * 2); ctx.fill();
+      // Core orb
+      const orb = ctx.createRadialGradient(-proj.radius * 0.25, -proj.radius * 0.25, 0, 0, 0, proj.radius);
+      orb.addColorStop(0, '#FFFDE0');
+      orb.addColorStop(0.4, '#FFE048');
+      orb.addColorStop(1, '#FF9500');
+      ctx.shadowBlur = 18; ctx.shadowColor = '#FFE048';
+      ctx.fillStyle = orb;
+      ctx.beginPath(); ctx.arc(0, 0, proj.radius, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
     }
     ctx.restore();
   }
