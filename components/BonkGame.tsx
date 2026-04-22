@@ -905,7 +905,7 @@ function GameOverScreen({ score, time, kills, level, wave,
               <div><p className="font-body text-xs text-white/40 uppercase tracking-wide">Wave Reached</p>
                 <p className="font-display font-black text-2xl text-white">{wave}</p></div>
             </div>
-            {walletName ? (
+            {WALLET_ENABLED && (walletName ? (
               <div className="flex items-center justify-center gap-2 mb-3 font-body text-sm text-white/50">
                 <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
                 Score saved as <span className="text-gvc-gold font-bold truncate max-w-[160px]">{walletName}</span>
@@ -916,7 +916,7 @@ function GameOverScreen({ score, time, kills, level, wave,
                 className="w-full py-3 rounded-xl bg-white/10 border border-white/20 text-white/80 font-display font-black text-sm uppercase hover:bg-white/15 transition-all active:scale-95 mb-3 disabled:opacity-50">
                 {isConnecting ? 'Connecting…' : '🦊 Connect Wallet to Save Score'}
               </button>
-            )}
+            ))}
           </>
         ) : (
           <div className="rounded-2xl bg-gvc-dark border border-white/10 mb-4 overflow-hidden max-h-60 overflow-y-auto">
