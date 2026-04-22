@@ -43,6 +43,7 @@ export interface Enemy {
   toxTimer: number;
   shootTimer: number;
   steerBias: number; // lateral approach offset in radians; fades near player
+  hitTimer: number;  // per-duck cooldown between player hits — allows swarm damage to stack
 }
 
 export interface Proj {
@@ -229,7 +230,8 @@ function spawnEnemy(gs: GS, type: EnemyType) {
     dmg: cfg.dmg, xpVal: cfg.xpVal,
     flashTimer: 0, slowTimer: 0, zigTimer: 0, zigDir: 1, toxTimer: 1.5,
     shootTimer: 1.5 + Math.random() * 1.5,
-    steerBias: (Math.random() - 0.5) * 0.6, // ±0.3 rad lateral offset to fan approach angles
+    steerBias: (Math.random() - 0.5) * 0.6,
+    hitTimer: 0,
   });
 }
 
@@ -513,6 +515,7 @@ export function updateGame(
     const e = gs.enemies[i];
     if (e.flashTimer > 0) e.flashTimer -= dt;
     if (e.slowTimer > 0) e.slowTimer -= dt;
+    if (e.hitTimer > 0) e.hitTimer -= dt;
     if (e.hp <= 0) {
       gs.orbs.push({ id: nid(gs), x: e.x, y: e.y, value: e.xpVal });
       gs.kills++; gs.score += e.xpVal * 2;
@@ -567,12 +570,14 @@ export function updateGame(
         }
       }
     }
-    // Player hit
-    if (p.invTimer <= 0 && d2(p.x, p.y, e.x, e.y) < (p.radius + e.radius) ** 2) {
+    // Player hit — per-duck cooldown so swarm damage stacks; p.invTimer only for shield/flash
+    if (e.hitTimer <= 0 && d2(p.x, p.y, e.x, e.y) < (p.radius + e.radius) ** 2) {
       if (p.shieldHp > 0) {
-        p.shieldHp = 0; p.invTimer = 0.5; spawnParticles(gs, p.x, p.y, '#00FFFF', 8);
+        p.shieldHp = 0; p.invTimer = 0.5; e.hitTimer = 0.5;
+        spawnParticles(gs, p.x, p.y, '#00FFFF', 8);
       } else {
-        p.hp -= e.dmg; p.invTimer = 0.8; spawnParticles(gs, p.x, p.y, '#FF4444', 5);
+        p.hp -= e.dmg; e.hitTimer = 0.75; p.invTimer = 0.12; // brief flash only
+        spawnParticles(gs, p.x, p.y, '#FF4444', 5);
         if (p.hp <= 0) { p.hp = 0; gs.phase = 'dead'; return; }
       }
     }
@@ -598,21 +603,6 @@ export function updateGame(
       a.y = Math.max(a.radius, Math.min(WORLD - a.radius, a.y + ny * force));
       b.x = Math.max(b.radius, Math.min(WORLD - b.radius, b.x - nx * force));
       b.y = Math.max(b.radius, Math.min(WORLD - b.radius, b.y - ny * force));
-    }
-  }
-
-  // Player barrier — pushes ducks to the edge of the player sprite so they
-  // ring around the player visibly rather than sliding under and disappearing.
-  for (const e of gs.enemies) {
-    const dx = e.x - p.x, dy = e.y - p.y;
-    const dist2 = dx * dx + dy * dy;
-    const minDist = p.radius + e.radius * 0.9;
-    if (dist2 < minDist * minDist && dist2 > 0.01) {
-      const dist = Math.sqrt(dist2);
-      const push = ((minDist - dist) / minDist) * 80 * dt;
-      const nx = dx / dist, ny = dy / dist;
-      e.x = Math.max(e.radius, Math.min(WORLD - e.radius, e.x + nx * push));
-      e.y = Math.max(e.radius, Math.min(WORLD - e.radius, e.y + ny * push));
     }
   }
 
