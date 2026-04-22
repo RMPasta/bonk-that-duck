@@ -786,7 +786,7 @@ function StartScreen({ onStart, bgUrl }: { onStart: () => void; bgUrl: string | 
         <img
           src="https://aagrmr5pocteyhfg.public.blob.vercel-storage.com/brand-assets/character-scenes/1776711650730-GVC_Duck_002.webp"
           alt="GVC Duck"
-          className="w-36 h-36 object-contain mx-auto mb-2 drop-shadow-[0_0_24px_rgba(255,224,72,0.45)]"
+          className="w-36 h-36 object-contain mx-auto mb-2 rounded-2xl drop-shadow-[0_0_24px_rgba(255,224,72,0.45)]"
         />
         <h1 className="font-display font-black text-4xl sm:text-5xl text-shimmer mb-1 uppercase tracking-tight">BONK THAT DUCK</h1>
         <p className="font-body text-white/50 text-sm mb-5">
@@ -869,7 +869,7 @@ function GameOverScreen({ score, time, kills, level, wave,
         <img
           src="https://aagrmr5pocteyhfg.public.blob.vercel-storage.com/brand-assets/character-scenes/1776711625812-XRay_Cooking_02.webp"
           alt="Defeated"
-          className="w-56 h-56 object-contain mx-auto mb-3 drop-shadow-[0_0_32px_rgba(255,95,31,0.6)]"
+          className="w-56 h-56 object-contain mx-auto mb-3 rounded-2xl drop-shadow-[0_0_32px_rgba(255,95,31,0.6)]"
         />
         <h2 className="font-display font-black text-4xl text-shimmer mb-1 uppercase">VIBES DEFEATED</h2>
         <p className="font-body text-white/40 text-sm mb-4">The ducks reclaim Vibetown… for now.</p>
