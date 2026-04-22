@@ -30,3 +30,7 @@ export function getSavedWallet(): string | null {
 export function saveWallet(address: string): void {
   try { localStorage.setItem('btd_wallet', address); } catch { /* noop */ }
 }
+
+export function clearWallet(): void {
+  try { localStorage.removeItem('btd_wallet'); } catch { /* noop */ }
+}

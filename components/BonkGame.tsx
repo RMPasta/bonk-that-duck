@@ -6,7 +6,7 @@ import {
   GS, Enemy, EnemyType, WORLD, UPGRADES, UpgradeDef,
   initGame, startGame, updateGame, applyUpgrade, pauseGame, resumeGame,
 } from '@/lib/game-engine';
-import { connectWallet, getSavedWallet, saveWallet } from '@/lib/wallet';
+import { connectWallet, getSavedWallet, saveWallet, clearWallet } from '@/lib/wallet';
 import { addScore, getLeaderboard, getPlayerEntry, LeaderboardEntry } from '@/lib/leaderboard';
 
 const WALLET_ENABLED = process.env.NEXT_PUBLIC_WALLET_ENABLED === 'true';
@@ -795,12 +795,16 @@ function loadName(): string {
   try { return localStorage.getItem('gvc:player_name') ?? ''; } catch { return ''; }
 }
 
-function StartScreen({ name, onNameChange, onStart, bgUrl, walletConnected }: {
+function StartScreen({ name, onNameChange, onStart, bgUrl, walletConnected, walletAddress, isConnecting, onConnect, onDisconnect }: {
   name: string;
   onNameChange: (n: string) => void;
   onStart: () => void;
   bgUrl: string | null;
   walletConnected: boolean;
+  walletAddress: string | null;
+  isConnecting: boolean;
+  onConnect: () => void;
+  onDisconnect: () => void;
 }) {
   const trimmed = name.trim();
 
@@ -840,12 +844,6 @@ function StartScreen({ name, onNameChange, onStart, bgUrl, walletConnected }: {
         <form onSubmit={handleSubmit} className="mb-3">
           <div className="flex items-center justify-between mb-1.5">
             <label className="font-body text-white/40 text-xs uppercase tracking-wide">Your name</label>
-            {walletConnected && (
-              <span className="flex items-center gap-1 font-body text-xs text-green-400/70">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
-                Wallet verified
-              </span>
-            )}
           </div>
           <input
             type="text"
@@ -861,6 +859,32 @@ function StartScreen({ name, onNameChange, onStart, bgUrl, walletConnected }: {
             START GAME
           </button>
         </form>
+
+        {/* Wallet connect / disconnect — optional verification */}
+        {WALLET_ENABLED && (
+          walletConnected && walletAddress ? (
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-black/30 border border-white/10"
+              onMouseDown={e => e.stopPropagation()}>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-400 shrink-0" />
+                <span className="font-body text-green-400/80 text-xs">Wallet verified</span>
+                <span className="font-body text-white/30 text-xs truncate max-w-[100px]">
+                  {walletAddress.slice(0, 6)}…{walletAddress.slice(-4)}
+                </span>
+              </div>
+              <button onClick={onDisconnect}
+                className="font-body text-white/30 text-xs hover:text-white/60 transition-colors ml-2">
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <button onClick={onConnect} disabled={isConnecting}
+              onMouseDown={e => e.stopPropagation()}
+              className="w-full py-2.5 rounded-xl bg-white/5 border border-white/15 text-white/40 font-body text-sm hover:bg-white/10 hover:text-white/60 transition-all active:scale-95 disabled:opacity-40">
+              {isConnecting ? 'Connecting…' : '🦊 Connect Wallet to Verify Score'}
+            </button>
+          )
+        )}
       </motion.div>
     </motion.div>
   );
@@ -910,11 +934,11 @@ function UpgradeModal({ choices, ups, onPick }: { choices: UpgradeDef[]; ups: Re
 }
 
 function GameOverScreen({ score, time, kills, level, wave,
-  playerName, playerAddress, walletConnected, isConnecting, onRestart, onConnect, leaderboard,
+  playerName, playerAddress, walletConnected, isConnecting, onRestart, onConnect, onDisconnect, leaderboard,
 }: {
   score: number; time: number; kills: number; level: number; wave: number;
   playerName: string; playerAddress: string; walletConnected: boolean; isConnecting: boolean;
-  onRestart: () => void; onConnect: () => void;
+  onRestart: () => void; onConnect: () => void; onDisconnect: () => void;
   leaderboard: LeaderboardEntry[];
 }) {
   const [tab, setTab] = useState<'stats' | 'board'>('stats');
@@ -961,6 +985,12 @@ function GameOverScreen({ score, time, kills, level, wave,
               <span className={`w-2 h-2 rounded-full inline-block ${walletConnected ? 'bg-green-400' : 'bg-gvc-gold/70'}`} />
               Score saved as <span className="text-gvc-gold font-bold truncate max-w-[160px]">{playerName}</span>
               {!walletConnected && <span className="text-white/25">(guest)</span>}
+              {walletConnected && (
+                <button onClick={onDisconnect} onMouseDown={e => e.stopPropagation()}
+                  className="text-white/25 hover:text-white/50 text-xs transition-colors ml-1">
+                  Disconnect
+                </button>
+              )}
             </div>
             {WALLET_ENABLED && !walletConnected && (
               <button onClick={onConnect} disabled={isConnecting}
@@ -1256,11 +1286,15 @@ export default function BonkGame() {
     return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
   }, []);
 
-  const handleStart   = useCallback(() => startGame(gsRef.current), []);
-  const handlePick    = useCallback((id: string) => applyUpgrade(gsRef.current, id), []);
-  const handleRestart = useCallback(() => startGame(gsRef.current), []);
-  const handlePause   = useCallback(() => pauseGame(gsRef.current), []);
-  const handleResume  = useCallback(() => resumeGame(gsRef.current), []);
+  const handleStart      = useCallback(() => startGame(gsRef.current), []);
+  const handlePick       = useCallback((id: string) => applyUpgrade(gsRef.current, id), []);
+  const handleRestart    = useCallback(() => startGame(gsRef.current), []);
+  const handlePause      = useCallback(() => pauseGame(gsRef.current), []);
+  const handleResume     = useCallback(() => resumeGame(gsRef.current), []);
+  const handleDisconnect = useCallback(() => {
+    clearWallet();
+    setWalletAddress(null);
+  }, []);
 
   const handleConnect = useCallback(async () => {
     setIsConnecting(true);
@@ -1388,6 +1422,10 @@ export default function BonkGame() {
             onStart={handleStart}
             bgUrl={null}
             walletConnected={WALLET_ENABLED && !!walletAddress}
+            walletAddress={WALLET_ENABLED ? walletAddress : null}
+            isConnecting={isConnecting}
+            onConnect={handleConnect}
+            onDisconnect={handleDisconnect}
           />
         )}
         {ui.phase === 'levelup' && <UpgradeModal key="lvl" choices={ui.choices} ups={ui.ups} onPick={handlePick} />}
@@ -1404,6 +1442,7 @@ export default function BonkGame() {
             isConnecting={WALLET_ENABLED ? isConnecting : false}
             onRestart={handleRestart}
             onConnect={WALLET_ENABLED ? handleConnect : () => {}}
+            onDisconnect={handleDisconnect}
             leaderboard={leaderboard} />
         )}
       </AnimatePresence>
