@@ -6,8 +6,8 @@ import {
   GS, Enemy, EnemyType, WORLD, UPGRADES, UpgradeDef,
   initGame, startGame, updateGame, applyUpgrade, pauseGame, resumeGame,
 } from '@/lib/game-engine';
-import { connectWallet, getWalletDisplayName, getSavedWallet, saveWallet } from '@/lib/wallet';
-import { addScore, getLeaderboard, LeaderboardEntry } from '@/lib/leaderboard';
+import { connectWallet, getSavedWallet, saveWallet } from '@/lib/wallet';
+import { addScore, getLeaderboard, getPlayerEntry, LeaderboardEntry } from '@/lib/leaderboard';
 
 const WALLET_ENABLED = process.env.NEXT_PUBLIC_WALLET_ENABLED === 'true';
 
@@ -781,7 +781,36 @@ function HUD({ hp, maxHp, xp, xpToNext, level, time, wave, score, ups }: {
   );
 }
 
-function StartScreen({ onStart, bgUrl }: { onStart: () => void; bgUrl: string | null }) {
+// Returns true only if name is a real user-chosen string (not an address or guest id)
+function isUserName(name: string): boolean {
+  return !!name && name.length >= 1 && name.length <= 20
+    && !name.startsWith('0x') && !name.startsWith('guest_');
+}
+
+function saveName(name: string) {
+  try { localStorage.setItem('gvc:player_name', name); } catch { /* noop */ }
+}
+
+function loadName(): string {
+  try { return localStorage.getItem('gvc:player_name') ?? ''; } catch { return ''; }
+}
+
+function StartScreen({ name, onNameChange, onStart, bgUrl, walletConnected }: {
+  name: string;
+  onNameChange: (n: string) => void;
+  onStart: () => void;
+  bgUrl: string | null;
+  walletConnected: boolean;
+}) {
+  const trimmed = name.trim();
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!trimmed) return;
+    saveName(trimmed);
+    onStart();
+  }
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-black/65 backdrop-blur-sm px-4">
@@ -802,16 +831,36 @@ function StartScreen({ onStart, bgUrl }: { onStart: () => void; bgUrl: string | 
           Evil rubber ducks are invading Vibetown.<br />
           Fight them off. Collect badges. Stay golden. 🤙
         </p>
-        <div className="card-glow rounded-2xl bg-gvc-dark/90 border border-white/10 p-4 mb-5 text-left text-sm font-body text-white/50 space-y-1.5">
+        <div className="card-glow rounded-2xl bg-gvc-dark/90 border border-white/10 p-4 mb-4 text-left text-sm font-body text-white/50 space-y-1.5">
           <p>🎮 <span className="text-white/80">Move</span> — WASD / Arrow keys / Click & hold / Touch drag</p>
           <p>⚔️ <span className="text-white/80">Attack</span> — Auto-targets the nearest duck</p>
           <p>✦ <span className="text-white/80">Level up</span> — Collect shaka-badge XP orbs</p>
           <p>🌊 <span className="text-white/80">Upgrade</span> — Pick a GVC badge each level</p>
         </div>
-        <button onClick={onStart}
-          className="w-full py-4 rounded-xl bg-gvc-gold text-gvc-black font-display font-black text-lg uppercase hover:shadow-[0_0_30px_rgba(255,224,72,0.6)] transition-all active:scale-95">
-          START GAME
-        </button>
+        <form onSubmit={handleSubmit} className="mb-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="font-body text-white/40 text-xs uppercase tracking-wide">Your name</label>
+            {walletConnected && (
+              <span className="flex items-center gap-1 font-body text-xs text-green-400/70">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+                Wallet verified
+              </span>
+            )}
+          </div>
+          <input
+            type="text"
+            value={name}
+            onChange={e => onNameChange(e.target.value.slice(0, 20))}
+            placeholder="Enter a name to get on the board"
+            autoComplete="off"
+            onMouseDown={e => e.stopPropagation()}
+            className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/20 text-white font-body text-sm placeholder-white/25 focus:outline-none focus:border-gvc-gold/60 focus:bg-black/70 transition-all mb-3"
+          />
+          <button type="submit" disabled={!trimmed}
+            className="w-full py-4 rounded-xl bg-gvc-gold text-gvc-black font-display font-black text-lg uppercase hover:shadow-[0_0_30px_rgba(255,224,72,0.6)] transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none">
+            START GAME
+          </button>
+        </form>
       </motion.div>
     </motion.div>
   );
@@ -861,10 +910,10 @@ function UpgradeModal({ choices, ups, onPick }: { choices: UpgradeDef[]; ups: Re
 }
 
 function GameOverScreen({ score, time, kills, level, wave,
-  walletName, isConnecting, onRestart, onConnect, leaderboard,
+  playerName, playerAddress, walletConnected, isConnecting, onRestart, onConnect, leaderboard,
 }: {
   score: number; time: number; kills: number; level: number; wave: number;
-  walletName: string | null; isConnecting: boolean;
+  playerName: string; playerAddress: string; walletConnected: boolean; isConnecting: boolean;
   onRestart: () => void; onConnect: () => void;
   leaderboard: LeaderboardEntry[];
 }) {
@@ -885,17 +934,16 @@ function GameOverScreen({ score, time, kills, level, wave,
         <h2 className="font-display font-black text-4xl text-shimmer mb-1 uppercase">VIBES DEFEATED</h2>
         <p className="font-body text-white/40 text-sm mb-4">The ducks reclaim Vibetown… for now.</p>
 
-        {/* Tab switcher — only shown when wallet feature is enabled */}
-        {WALLET_ENABLED && <div className="flex gap-1 bg-black/40 rounded-xl p-1 mb-4">
+        <div className="flex gap-1 bg-black/40 rounded-xl p-1 mb-4">
           {(['stats', 'board'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
+            <button key={t} onClick={() => setTab(t)} onMouseDown={e => e.stopPropagation()}
               className={`flex-1 py-2 rounded-lg font-display font-black text-xs uppercase transition-all ${
                 tab === t ? 'bg-gvc-gold text-gvc-black' : 'text-white/40 hover:text-white/70'
               }`}>
               {t === 'stats' ? 'Your Run' : 'Leaderboard'}
             </button>
           ))}
-        </div>}
+        </div>
 
         {tab === 'stats' ? (
           <>
@@ -909,31 +957,33 @@ function GameOverScreen({ score, time, kills, level, wave,
               <div><p className="font-body text-xs text-white/40 uppercase tracking-wide">Wave Reached</p>
                 <p className="font-display font-black text-2xl text-white">{wave}</p></div>
             </div>
-            {WALLET_ENABLED && (walletName ? (
-              <div className="flex items-center justify-center gap-2 mb-3 font-body text-sm text-white/50">
-                <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
-                Score saved as <span className="text-gvc-gold font-bold truncate max-w-[160px]">{walletName}</span>
-              </div>
-            ) : (
+            <div className="flex items-center justify-center gap-2 mb-3 font-body text-sm text-white/50">
+              <span className={`w-2 h-2 rounded-full inline-block ${walletConnected ? 'bg-green-400' : 'bg-gvc-gold/70'}`} />
+              Score saved as <span className="text-gvc-gold font-bold truncate max-w-[160px]">{playerName}</span>
+              {!walletConnected && <span className="text-white/25">(guest)</span>}
+            </div>
+            {WALLET_ENABLED && !walletConnected && (
               <button onClick={onConnect} disabled={isConnecting}
                 onMouseDown={e => e.stopPropagation()}
-                className="w-full py-3 rounded-xl bg-white/10 border border-white/20 text-white/80 font-display font-black text-sm uppercase hover:bg-white/15 transition-all active:scale-95 mb-3 disabled:opacity-50">
-                {isConnecting ? 'Connecting…' : '🦊 Connect Wallet to Save Score'}
+                className="w-full py-2.5 rounded-xl bg-white/8 border border-white/15 text-white/50 font-display font-black text-xs uppercase hover:bg-white/12 transition-all active:scale-95 mb-3 disabled:opacity-50">
+                {isConnecting ? 'Connecting…' : '🦊 Link Wallet for Verified Score'}
               </button>
-            ))}
+            )}
           </>
         ) : (
-          <div className="rounded-2xl bg-gvc-dark border border-white/10 mb-4 overflow-hidden max-h-60 overflow-y-auto">
+          <div className="rounded-2xl bg-gvc-dark border border-white/10 mb-4 overflow-hidden max-h-64 overflow-y-auto">
             {leaderboard.length === 0 ? (
-              <p className="font-body text-white/30 text-sm p-6 text-center">No scores yet. Connect your wallet to get on the board!</p>
+              <p className="font-body text-white/30 text-sm p-6 text-center">No scores yet — you could be first!</p>
             ) : leaderboard.map((entry, i) => (
               <div key={entry.address} className={`flex items-center gap-3 px-4 py-2.5 border-b border-white/5 last:border-0 ${
-                walletName && entry.name === walletName ? 'bg-gvc-gold/8' : ''
+                entry.address === playerAddress ? 'bg-gvc-gold/8' : ''
               }`}>
                 <span className={`font-display font-black text-sm w-6 shrink-0 ${
                   i === 0 ? 'text-gvc-gold' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-orange-400' : 'text-white/30'
                 }`}>{i + 1}</span>
-                <span className="font-body text-white/70 text-sm truncate flex-1 text-left">{entry.name}</span>
+                <span className="font-body text-white/70 text-sm truncate flex-1 text-left">
+                  {entry.name}{entry.isGuest ? <span className="text-white/30"> (guest)</span> : null}
+                </span>
                 <span className="font-display font-black text-gvc-gold text-sm shrink-0">{Math.floor(entry.score).toLocaleString()}</span>
               </div>
             ))}
@@ -1017,10 +1067,24 @@ export default function BonkGame() {
   const assetsRef = useRef<Assets>({ bgs: [], shaka: null, craigCanvas: null, vibeShot: null, shibaBadge: null });
 
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [walletName, setWalletName] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  // Single source of truth: localStorage → state → controlled input
+  const [playerName, setPlayerNameState] = useState<string>(() => loadName());
   const scoreSubmittedRef = useRef(false);
+  const guestIdRef = useRef<string>((() => {
+    try {
+      let id = localStorage.getItem('gvc:guest_id');
+      if (!id) { id = Math.random().toString(36).slice(2, 10); localStorage.setItem('gvc:guest_id', id); }
+      return id;
+    } catch { return Math.random().toString(36).slice(2, 10); }
+  })());
+
+  // Keep localStorage in sync whenever playerName changes
+  const setPlayerName = useCallback((n: string) => {
+    setPlayerNameState(n);
+    if (isUserName(n)) saveName(n);
+  }, []);
 
   const [ui, setUi] = useState<UiSnap>({
     phase: 'menu', hp: 100, maxHp: 100, xp: 0, xpToNext: 10,
@@ -1067,31 +1131,40 @@ export default function BonkGame() {
     loadCraig();
   }, []);
 
-  // Restore saved wallet on mount
+  // Restore saved wallet on mount + always load leaderboard
   useEffect(() => {
-    if (!WALLET_ENABLED) return;
-    const saved = getSavedWallet();
-    if (saved) {
-      setWalletAddress(saved);
-      getWalletDisplayName(saved).then(name => setWalletName(name));
+    if (WALLET_ENABLED) {
+      const saved = getSavedWallet();
+      if (saved) {
+        setWalletAddress(saved);
+        // Only pull username from DB when localStorage has no name (e.g. new device)
+        // localStorage always wins — never overwrite a user-chosen name with a DB value
+        if (!loadName()) {
+          getPlayerEntry(saved).then(entry => {
+            if (entry?.name && isUserName(entry.name)) {
+              setPlayerName(entry.name);
+            }
+          });
+        }
+      }
     }
     getLeaderboard().then(setLeaderboard);
-  }, []);
+  }, [setPlayerName]);
 
-  // Submit score when game ends and wallet is connected
+  // Submit score on game over — works for both guests and wallet players
   useEffect(() => {
-    if (!WALLET_ENABLED) return;
-    if (ui.phase === 'dead' && walletAddress && walletName && !scoreSubmittedRef.current) {
+    if (ui.phase === 'dead' && !scoreSubmittedRef.current && playerName) {
       scoreSubmittedRef.current = true;
+      const address = walletAddress ?? `guest_${guestIdRef.current}`;
       addScore({
-        address: walletAddress, name: walletName,
+        address, name: playerName,
         score: ui.score, time: ui.time, kills: ui.kills, wave: ui.wave,
       }).then(() => getLeaderboard().then(setLeaderboard));
     }
     if (ui.phase === 'playing') {
       scoreSubmittedRef.current = false;
     }
-  }, [ui.phase, walletAddress, walletName, ui.score, ui.time, ui.kills, ui.wave]);
+  }, [ui.phase, walletAddress, playerName, ui.score, ui.time, ui.kills, ui.wave]);
 
   // UI sync
   useEffect(() => {
@@ -1194,23 +1267,29 @@ export default function BonkGame() {
     try {
       const address = await connectWallet();
       if (!address) return;
-      const name = await getWalletDisplayName(address);
       saveWallet(address);
       setWalletAddress(address);
-      setWalletName(name);
-      // If game is already over, submit score now
+      // If player has no name yet, check DB (cross-device recovery)
+      let nameToUse = playerName;
+      if (!isUserName(nameToUse)) {
+        const existing = await getPlayerEntry(address);
+        if (existing?.name && isUserName(existing.name)) {
+          nameToUse = existing.name;
+          setPlayerName(nameToUse);
+        }
+      }
+      // Re-submit with wallet identity, removing the prior guest entry
       const gs = gsRef.current;
-      if (gs.phase === 'dead' && !scoreSubmittedRef.current) {
-        scoreSubmittedRef.current = true;
-        addScore({
-          address, name,
-          score: gs.score, time: gs.time, kills: gs.kills, wave: gs.wave,
-        }).then(() => getLeaderboard().then(setLeaderboard));
+      if (gs.phase === 'dead' && isUserName(nameToUse)) {
+        addScore(
+          { address, name: nameToUse, score: gs.score, time: gs.time, kills: gs.kills, wave: gs.wave },
+          `guest_${guestIdRef.current}`,
+        ).then(() => getLeaderboard().then(setLeaderboard));
       }
     } finally {
       setIsConnecting(false);
     }
-  }, []);
+  }, [playerName, setPlayerName]);
 
   // Mouse click-to-move — held click steers like a joystick
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -1277,11 +1356,11 @@ export default function BonkGame() {
 
       {(ui.phase === 'playing' || ui.phase === 'levelup') && (
         <div className="absolute top-3 right-3 z-10 flex items-center gap-2 pointer-events-auto">
-          {WALLET_ENABLED && walletName && (
+          {playerName && (
             <div onMouseDown={e => e.stopPropagation()}
               className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-black/50 border border-white/10 max-w-[120px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
-              <span className="font-body text-white/50 text-xs truncate">{walletName}</span>
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${walletAddress ? 'bg-green-400' : 'bg-gvc-gold/60'}`} />
+              <span className="font-body text-white/50 text-xs truncate">{playerName}</span>
             </div>
           )}
           <button
@@ -1302,7 +1381,15 @@ export default function BonkGame() {
       )}
 
       <AnimatePresence>
-        {ui.phase === 'menu' && <StartScreen key="start" onStart={handleStart} bgUrl={null} />}
+        {ui.phase === 'menu' && (
+          <StartScreen key="start"
+            name={playerName}
+            onNameChange={setPlayerName}
+            onStart={handleStart}
+            bgUrl={null}
+            walletConnected={WALLET_ENABLED && !!walletAddress}
+          />
+        )}
         {ui.phase === 'levelup' && <UpgradeModal key="lvl" choices={ui.choices} ups={ui.ups} onPick={handlePick} />}
         {ui.phase === 'paused' && <PauseScreen key="pause" onResume={handleResume} onRestart={handleRestart} />}
         {ui.waveAnnounce > 0 && ui.phase === 'playing' && (
@@ -1311,11 +1398,13 @@ export default function BonkGame() {
         {ui.phase === 'dead' && (
           <GameOverScreen key="over" score={ui.score} time={ui.time} kills={ui.kills}
             level={ui.level} wave={ui.wave}
-            walletName={WALLET_ENABLED ? walletName : null}
+            playerName={playerName}
+            playerAddress={walletAddress ?? `guest_${guestIdRef.current}`}
+            walletConnected={WALLET_ENABLED ? !!walletAddress : false}
             isConnecting={WALLET_ENABLED ? isConnecting : false}
             onRestart={handleRestart}
             onConnect={WALLET_ENABLED ? handleConnect : () => {}}
-            leaderboard={WALLET_ENABLED ? leaderboard : []} />
+            leaderboard={leaderboard} />
         )}
       </AnimatePresence>
     </div>
