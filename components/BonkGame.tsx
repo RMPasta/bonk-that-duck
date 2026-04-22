@@ -596,20 +596,20 @@ function renderGame(
       ctx.fillStyle = '#FF2266';
       ctx.beginPath(); ctx.arc(0, 0, proj.radius * 0.55, 0, Math.PI * 2); ctx.fill();
     } else if (proj.type === 'bean') {
-      // ASTRO BEAN — green homing bean with starry trail
+      // ASTRO BEAN — pink homing bean
       ctx.translate(proj.x, proj.y);
       ctx.rotate(Math.atan2(proj.vy, proj.vx));
-      ctx.shadowBlur = 16; ctx.shadowColor = '#44FF88';
-      ctx.fillStyle = '#22CC55';
+      ctx.shadowBlur = 16; ctx.shadowColor = '#FF6B9D';
+      ctx.fillStyle = '#EE2277';
       ctx.beginPath();
       ctx.ellipse(0, 0, proj.radius * 1.5, proj.radius * 0.85, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#88FFBB';
+      ctx.fillStyle = '#FF99CC';
       ctx.beginPath();
       ctx.ellipse(-proj.radius * 0.3, -proj.radius * 0.28, proj.radius * 0.55, proj.radius * 0.35, -0.4, 0, Math.PI * 2);
       ctx.fill();
       // Homing glow ring
-      ctx.globalAlpha = 0.22; ctx.strokeStyle = '#44FF88'; ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.22; ctx.strokeStyle = '#FF6B9D'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(0, 0, proj.radius * 2.2, 0, Math.PI * 2); ctx.stroke();
     } else {
       // VIBE SHOT — Official Citizen of Vibetown badge with gold glow
