@@ -953,23 +953,20 @@ function WaveAnnouncement({ wave }: { wave: number }) {
   const isBoss = wave > 0 && wave % 5 === 0;
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.7, y: -20 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 1.15, y: -30 }}
-      transition={{ type: 'spring', stiffness: 200, damping: 18 }}
-      className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
-      <div className={`text-center px-8 py-4 rounded-2xl border ${isBoss ? 'border-orange-500/60 bg-orange-950/60' : 'border-[#FFE048]/30 bg-black/50'} backdrop-blur-sm`}>
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.25 }}
+      className="absolute inset-x-0 top-[90px] flex justify-center z-10 pointer-events-none px-4">
+      <div className={`text-center px-6 py-2 rounded-xl border ${isBoss ? 'border-orange-500/25 bg-orange-950/25' : 'border-[#FFE048]/15 bg-black/25'}`}>
         {isBoss ? (
-          <>
-            <p className="font-display font-black text-orange-400 text-sm uppercase tracking-widest mb-0.5">Boss Wave</p>
-            <p className="font-display font-black text-5xl text-orange-300 drop-shadow-[0_0_20px_rgba(255,95,31,0.8)]">WAVE {wave}</p>
-            <p className="font-body text-orange-400/70 text-xs mt-1">The Duck King approaches!</p>
-          </>
+          <p className="font-display font-black text-orange-300/80 text-lg uppercase tracking-widest">
+            WAVE {wave} — Boss Incoming
+          </p>
         ) : (
-          <>
-            <p className="font-display font-black text-[#FFE048]/70 text-sm uppercase tracking-widest mb-0.5">Wave Clear</p>
-            <p className="font-display font-black text-5xl text-shimmer">WAVE {wave}</p>
-          </>
+          <p className="font-display font-black text-[#FFE048]/65 text-lg uppercase tracking-widest">
+            WAVE {wave}
+          </p>
         )}
       </div>
     </motion.div>
