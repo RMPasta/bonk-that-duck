@@ -564,14 +564,14 @@ export function updateGame(
   }
 
   // Duck separation — gentle push so ducks fan out rather than perfectly stacking.
-  // Allows ~30% overlap before kicking in, keeping swarm feel without full clumping.
+  // Allows ~28% overlap before kicking in, keeping swarm feel without full clumping.
   for (let i = 0; i < gs.enemies.length; i++) {
     const a = gs.enemies[i];
     for (let j = i + 1; j < gs.enemies.length; j++) {
       const b = gs.enemies[j];
       const dx = a.x - b.x, dy = a.y - b.y;
       const dist2 = dx * dx + dy * dy;
-      const sep = (a.radius + b.radius) * 0.72; // 28% overlap allowed
+      const sep = (a.radius + b.radius) * 0.72;
       if (dist2 < sep * sep && dist2 > 0.01) {
         const dist = Math.sqrt(dist2);
         const push = ((sep - dist) / sep) * 55 * dt;
@@ -581,6 +581,21 @@ export function updateGame(
         b.x = Math.max(b.radius, Math.min(WORLD - b.radius, b.x - nx * push));
         b.y = Math.max(b.radius, Math.min(WORLD - b.radius, b.y - ny * push));
       }
+    }
+  }
+
+  // Player barrier — pushes ducks to the edge of the player sprite so they
+  // ring around the player visibly rather than sliding under and disappearing.
+  for (const e of gs.enemies) {
+    const dx = e.x - p.x, dy = e.y - p.y;
+    const dist2 = dx * dx + dy * dy;
+    const minDist = p.radius + e.radius * 0.9;
+    if (dist2 < minDist * minDist && dist2 > 0.01) {
+      const dist = Math.sqrt(dist2);
+      const push = ((minDist - dist) / minDist) * 80 * dt;
+      const nx = dx / dist, ny = dy / dist;
+      e.x = Math.max(e.radius, Math.min(WORLD - e.radius, e.x + nx * push));
+      e.y = Math.max(e.radius, Math.min(WORLD - e.radius, e.y + ny * push));
     }
   }
 
