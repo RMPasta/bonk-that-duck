@@ -15,7 +15,7 @@ const WALLET_ENABLED = process.env.NEXT_PUBLIC_WALLET_ENABLED === 'true';
 
 const ASSET_BASE = 'https://aagrmr5pocteyhfg.public.blob.vercel-storage.com/brand-assets';
 const BADGE_CDN = 'https://sl1vlqqspml5zngx.public.blob.vercel-storage.com/badges/optimized';
-const PLAYER_URL = `${ASSET_BASE}/characters/1776711653209-Craig.webp`;
+const PLAYER_URL = '/craig.gif';
 const BG_FALLBACKS = [
   `${ASSET_BASE}/backgrounds/1776711583783-Vibetown_Beach_Wide_01.webp`,
   `${ASSET_BASE}/backgrounds/1776711583292-Vibetown_Beach_Wide_02.webp`,
@@ -388,12 +388,6 @@ function drawPlayer(
   // When called inside the world transform, draw at world position
   const px = p.x, py = p.y;
 
-  // XP radius (faint dashed ring)
-  ctx.save();
-  ctx.globalAlpha = 0.08; ctx.strokeStyle = '#FFE048'; ctx.lineWidth = 1;
-  ctx.setLineDash([4, 6]);
-  ctx.beginPath(); ctx.arc(px, py, p.xpRadius, 0, Math.PI * 2); ctx.stroke();
-  ctx.setLineDash([]); ctx.restore();
 
   // Aura
   if (p.auraActive) {
@@ -440,23 +434,17 @@ function drawPlayer(
   const isFlashing = (p.invTimer > 0 || inPool) && Math.floor(gs.time * 20) % 2 === 0;
   const bob = isMoving ? Math.sin(gs.time * 9) * 2.5 : 0;
 
-  // Gold base glow
-  ctx.save();
-  ctx.shadowBlur = 18; ctx.shadowColor = '#FFE048';
-  ctx.fillStyle = 'rgba(255,224,72,0.22)';
-  ctx.beginPath(); ctx.arc(px, py + 6, p.radius * 0.9, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
 
   if (craigCanvas) {
-    // Processed Craig image (background removed) — high quality scaling
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     const imgH = p.radius * 4.5;
     const imgW = (craigCanvas.width / craigCanvas.height) * imgH;
     if (isFlashing) { ctx.save(); ctx.globalAlpha = 0.4; }
-    ctx.drawImage(craigCanvas, px - imgW / 2, py - imgH * 0.72 + bob, imgW, imgH);
+    ctx.drawImage(craigCanvas, px - imgW / 2, py - imgH * 0.6 + bob, imgW, imgH);
     if (isFlashing) ctx.restore();
-  } else {
+  } else if (!PLAYER_URL.endsWith('.gif')) {
+    // GIF is rendered as an HTML overlay — only fall back to pixel art for non-GIF
     drawCraigPixelArt(ctx, px, py, gs.time, isMoving, isFlashing);
   }
 }
@@ -529,15 +517,6 @@ function renderGame(
     ctx.save();
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    // Dark backdrop so the icon pops on any background
-    ctx.globalAlpha = 0.65;
-    ctx.fillStyle = '#000000';
-    ctx.beginPath(); ctx.arc(orb.x, orb.y, sz * 0.54, 0, Math.PI * 2); ctx.fill();
-    // White ring outline
-    ctx.globalAlpha = 0.7;
-    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(orb.x, orb.y, sz * 0.54, 0, Math.PI * 2); ctx.stroke();
-    // Icon
     ctx.globalAlpha = 1;
     ctx.shadowBlur = 12; ctx.shadowColor = '#FFE048';
     if (assets.shaka) {
@@ -1095,6 +1074,7 @@ export default function BonkGame() {
   const joyThumbRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const mouseRef = useRef<{ x: number; y: number; held: boolean }>({ x: 0, y: 0, held: false });
   const assetsRef = useRef<Assets>({ bgs: [], shaka: null, craigCanvas: null, vibeShot: null, shibaBadge: null });
+  const craigImgRef = useRef<HTMLImageElement>(null);
 
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -1142,12 +1122,11 @@ export default function BonkGame() {
       assetsRef.current.bgs = imgs.filter((i): i is HTMLImageElement => i !== null);
     }
 
-    // Craig character: load + remove solid background colour
     async function loadCraig() {
+      if (PLAYER_URL.endsWith('.gif')) return; // GIF overlay handles rendering
       const img = await loadImg(PLAYER_URL);
       if (!img) return;
-      const processed = await processPlayerImage(img);
-      assetsRef.current.craigCanvas = processed; // null = use pixel art fallback
+      assetsRef.current.craigCanvas = await processPlayerImage(img);
     }
 
     // Any GVC badge icon for XP orbs
@@ -1263,6 +1242,29 @@ export default function BonkGame() {
 
       // Zoom out on smaller screens for a wider field of view
       const zoom = Math.max(0.6, Math.min(1.0, W / 900));
+
+      // GIF overlay — position imperatively so the browser renders it (animating it naturally)
+      if (PLAYER_URL.endsWith('.gif') && craigImgRef.current) {
+        const img = craigImgRef.current;
+        const show = gs.phase !== 'menu';
+        if (show) {
+          const screenX = W / 2 + (gs.p.x - gs.cam.x) * zoom;
+          const screenY = H / 2 + (gs.p.y - gs.cam.y) * zoom;
+          const imgH = gs.p.radius * 4.5 * zoom;
+          const ar = img.naturalWidth / (img.naturalHeight || 1) || 1;
+          const imgW = ar * imgH;
+          const bob = isMoving ? Math.sin(gs.time * 9) * 2.5 : 0;
+          const flashing = gs.p.invTimer > 0 && Math.floor(gs.time * 20) % 2 === 0;
+          img.style.display = 'block';
+          img.style.left = `${screenX - imgW / 2}px`;
+          img.style.top = `${screenY - imgH * 0.6 + bob}px`;
+          img.style.width = `${imgW}px`;
+          img.style.height = `${imgH}px`;
+          img.style.opacity = flashing ? '0.35' : '1';
+        } else {
+          img.style.display = 'none';
+        }
+      }
 
       ctx.clearRect(0, 0, W, H);
       if (gs.phase !== 'menu') {
@@ -1382,6 +1384,11 @@ export default function BonkGame() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}>
       <canvas ref={canvasRef} className="absolute inset-0 block" />
+      {/* GIF overlay — positioned by game loop each frame; must be in DOM to animate */}
+      {PLAYER_URL.endsWith('.gif') && (
+        <img ref={craigImgRef} src={PLAYER_URL} alt=""
+          className="absolute pointer-events-none" style={{ display: 'none', imageRendering: 'auto' }} />
+      )}
 
       {(ui.phase === 'playing' || ui.phase === 'levelup' || ui.phase === 'paused') && (
         <HUD hp={ui.hp} maxHp={ui.maxHp} xp={ui.xp} xpToNext={ui.xpToNext}
