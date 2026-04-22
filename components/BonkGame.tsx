@@ -1020,8 +1020,8 @@ export default function BonkGame() {
       assetsRef.current.craigCanvas = processed; // null = use pixel art fallback
     }
 
-    // Shaka badge icon for XP orbs
-    loadImg('/shaka.png').then(img => { if (img) assetsRef.current.shaka = img; });
+    // Any GVC badge icon for XP orbs
+    loadImg(`${ASSET_BASE}/badges/1776285676512-any_gvc.webp`).then(img => { if (img) assetsRef.current.shaka = img; });
     // Official Citizen of Vibetown badge for vibe shots
     loadImg(VIBE_SHOT_URL).then(img => { if (img) assetsRef.current.vibeShot = img; });
     // Shiba badge for orbital companions
