@@ -891,7 +891,7 @@ function GameOverScreen({ score, time, kills, level, wave,
               {t === 'stats' ? 'Your Run' : 'Leaderboard'}
             </button>
           ))}
-        </div>
+        </div>}
 
         {tab === 'stats' ? (
           <>
