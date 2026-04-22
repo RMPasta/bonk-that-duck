@@ -108,7 +108,7 @@ export function xpForLevel(level: number): number {
 const ECONF: Record<EnemyType, { hp: number; spd: number; dmg: number; xpVal: number; r: number }> = {
   basic:  { hp: 30,   spd: 120, dmg: 8,  xpVal: 5,   r: 16 },
   surfer: { hp: 22,   spd: 162, dmg: 6,  xpVal: 8,   r: 14 },
-  tank:   { hp: 160,  spd: 65,  dmg: 18, xpVal: 25,  r: 30 },
+  tank:   { hp: 160,  spd: 88,  dmg: 23, xpVal: 25,  r: 30 },
   toxic:  { hp: 38,   spd: 100, dmg: 4,  xpVal: 10,  r: 16 },
   bomb:   { hp: 18,   spd: 155, dmg: 35, xpVal: 15,  r: 14 },
   boss:   { hp: 1200, spd: 85,  dmg: 25, xpVal: 150, r: 52 },
