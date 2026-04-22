@@ -382,7 +382,8 @@ function drawPlayer(
   shibaBadge: HTMLImageElement | null
 ) {
   const p = gs.p;
-  const px = W / 2, py = H / 2; // player always at screen center
+  // When called inside the world transform, draw at world position
+  const px = p.x, py = p.y;
 
   // XP radius (faint dashed ring)
   ctx.save();
@@ -461,12 +462,11 @@ function renderGame(
   ctx: CanvasRenderingContext2D,
   gs: GS, W: number, H: number,
   assets: Assets,
-  isMoving: boolean
+  isMoving: boolean,
+  zoom: number
 ) {
-  // Camera follows player with no clamping so the black OOB area is visible at world edges
   const camX = gs.cam.x;
   const camY = gs.cam.y;
-  const tx = W / 2 - camX, ty = H / 2 - camY;
 
   // High-quality image smoothing for all draws in this frame
   ctx.imageSmoothingEnabled = true;
@@ -476,8 +476,11 @@ function renderGame(
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, W, H);
 
+  // World transform: zoom < 1 on mobile gives a wider field of view
   ctx.save();
-  ctx.translate(tx, ty);
+  ctx.translate(W / 2, H / 2);
+  ctx.scale(zoom, zoom);
+  ctx.translate(-camX, -camY);
 
   // ── Background: ONE image clipped exactly to world bounds, swaps every 5 waves ──
   const activeBg = assets.bgs.length > 0
@@ -516,21 +519,29 @@ function renderGame(
     ctx.restore();
   }
 
-  // XP orbs — rendered as shaka-badge icons
+  // XP orbs — rendered as shaka-badge icons with dark backdrop for contrast
   for (const orb of gs.orbs) {
     const pulse = 0.88 + 0.12 * Math.sin(gs.time * 6 + orb.id * 0.7);
+    const sz = 28 * pulse;
     ctx.save();
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.shadowBlur = 14; ctx.shadowColor = '#FFE048';
+    // Dark backdrop so the icon pops on any background
+    ctx.globalAlpha = 0.65;
+    ctx.fillStyle = '#000000';
+    ctx.beginPath(); ctx.arc(orb.x, orb.y, sz * 0.54, 0, Math.PI * 2); ctx.fill();
+    // White ring outline
+    ctx.globalAlpha = 0.7;
+    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(orb.x, orb.y, sz * 0.54, 0, Math.PI * 2); ctx.stroke();
+    // Icon
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 12; ctx.shadowColor = '#FFE048';
     if (assets.shaka) {
-      const sz = 30 * pulse;
       ctx.drawImage(assets.shaka, orb.x - sz / 2, orb.y - sz / 2, sz, sz);
     } else {
       ctx.fillStyle = '#FFE048';
       ctx.beginPath(); ctx.arc(orb.x, orb.y, 7 * pulse, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#FFFFFF'; ctx.globalAlpha = 0.6;
-      ctx.beginPath(); ctx.arc(orb.x - 2, orb.y - 2, 2.5 * pulse, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
   }
@@ -644,9 +655,9 @@ function renderGame(
     ctx.restore();
   }
 
-  // Enemies (visible only)
-  const visL = camX - W / 2 - 80, visR = camX + W / 2 + 80;
-  const visT = camY - H / 2 - 80, visB = camY + H / 2 + 80;
+  // Enemies (visible only) — viewport in world space expands when zoomed out
+  const visL = camX - W / (2 * zoom) - 80, visR = camX + W / (2 * zoom) + 80;
+  const visT = camY - H / (2 * zoom) - 80, visB = camY + H / (2 * zoom) + 80;
   for (const e of gs.enemies) {
     if (e.x < visL || e.x > visR || e.y < visT || e.y > visB) continue;
     drawRubberDuck(ctx, e);
@@ -697,10 +708,10 @@ function renderGame(
     ctx.restore();
   }
 
-  ctx.restore(); // end world transform
-
-  // Player (always at screen center)
+  // Player — drawn in world space so it scales with zoom
   drawPlayer(ctx, gs, W, H, assets.craigCanvas, isMoving, assets.shibaBadge);
+
+  ctx.restore(); // end world transform
 }
 
 // ─── React UI sub-components ──────────────────────────────────────────────────
@@ -1110,9 +1121,12 @@ export default function BonkGame() {
       const moveKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'w', 'W', 'a', 'A', 's', 'S', 'd', 'D'];
       const isMoving = joyRef.current !== null || mouseJoy !== null || moveKeys.some(k => keysRef.current.has(k));
 
+      // Zoom out on smaller screens for a wider field of view
+      const zoom = Math.max(0.6, Math.min(1.0, W / 900));
+
       ctx.clearRect(0, 0, W, H);
       if (gs.phase !== 'menu') {
-        renderGame(ctx, gs, W, H, assetsRef.current, isMoving);
+        renderGame(ctx, gs, W, H, assetsRef.current, isMoving, zoom);
       } else {
         // Menu: show background only
         const bg = assetsRef.current.bgs[0] ?? null;
